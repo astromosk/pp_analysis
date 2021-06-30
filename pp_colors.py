@@ -68,20 +68,20 @@ def lookup_filter(filterName):
     
     #  dictionary of supported filters: wavelengths (micron), solar mag, and plot color
     filters = {
-              'B': [0.4353, 5.47, 'b'],
-              'V': [0.5477, 4.82, 'g'],
-              'R': [0.6349, 4.46, 'r'],
-              'I': [0.78, 4.12, 'k'],
-              'u': [0.3551, 6.55, 'b'],
-              'g': [0.4686, 5.12, 'g'],
-              'r': [0.6166, 4.68, 'r'],
-              'i': [0.7480, 4.57, 'k'],
-              'z': [0.8932, 4.54, 'm'],
-              'SDSS-U': [0.3551, 6.55, 'b'],
-              'SDSS-G': [0.4686, 5.12, 'g'],
-              'SDSS-R': [0.6166, 4.68, 'r'],
-              'SDSS-I': [0.7480, 4.57, 'k'],
-              'SDSS-Z': [0.8932, 4.54, 'm'],
+              'B': [0.4353, 5.47, 'blue'],
+              'V': [0.5477, 4.82, 'darkgreen'],
+              'R': [0.6349, 4.46, 'tomato'],
+              'I': [0.78, 4.12, 'black'],
+              'u': [0.3551, 6.55, 'blue'],
+              'g': [0.4686, 5.12, 'darkgreen'],
+              'r': [0.6166, 4.68, 'tomato'],
+              'i': [0.7480, 4.57, 'black'],
+              'z': [0.8932, 4.54, 'magenta'],
+              'SDSS-U': [0.3551, 6.55, 'blue'],
+              'SDSS-G': [0.4686, 5.12, 'darkgreen'],
+              'SDSS-R': [0.6166, 4.68, 'tomato'],
+              'SDSS-I': [0.7480, 4.57, 'black'],
+              'SDSS-Z': [0.8932, 4.54, 'magenta'],
               }
 
     if filterName in filters:
@@ -326,7 +326,7 @@ def pp_colors(filenames):
         file = filenames[i]
         avg_mags['phot_file'][i] = file
         
-        # mag_table populated from photometry file
+        # mag_table read from photometry file
         mag_table = read_phot_table(file)
               
         # Retrieve filter information
@@ -392,9 +392,14 @@ def pp_colors(filenames):
             print('Exiting.')
             sys.exit()
 
+    # Record reference filter in color_summary Table
     ref_filt = avg_mags[mask]['filter']
     color_summary['ref_filter'] = ref_filt
     color_summary['color_name'] = color_summary['ref_filter']+'-'+color_summary['filter2']
+
+    # Remove rows in color_summary Table where ref_filter == filter
+    mask2 = color_summary['ref_filter'] != color_summary['filter2']
+    color_summary = color_summary[mask2]
 
     #determine lightcurve correction function and reference magnitudes
     #
@@ -403,10 +408,10 @@ def pp_colors(filenames):
     coeff = lc_correct(ref_mag_table,jd0)
     ref_mag_calc = np.poly1d(coeff)
 
-    # compute colors, exclude reference filter with mask, lightcurve correct
+    # lightcurve correct
     #
-    mask2 = color_summary['ref_filter'] != color_summary['filter2']
-    color_summary = color_summary[mask2]
+    a = 1
+    
     color_summary['ref_mag'] = np.round(ref_mag_calc(color_summary['f2_jd']-jd0),4)
 
     # error on computed reference filter magnitude is standard error on mean of all measurements
@@ -420,6 +425,11 @@ def pp_colors(filenames):
     # computed magnitudes (ref_mag_calc) and measured mags (ref_mag_table)
     ref_mag_residuals = ref_mag_table['mag'] - ref_mag_calc(ref_mag_table['julian_date']-jd0)
     color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
+
+
+
+
+
 
     # compute color relative to computed reference magnitude for each frame
     color_summary['color'] = np.round(color_summary['ref_mag'] - color_summary['f2_mag'],4)
