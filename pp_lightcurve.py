@@ -140,10 +140,10 @@ def pp_lightcurve():
         
         # residual and chi-squared from fit
         residual = dat['norm_mag'] - fourier(time_hr.data, *popt)
-        chisq = np.append(chisq,np.sum((residual/dat['in_sig'])**2/dof))
+        chisq = np.append(chisq,np.sum((residual/dat['in_sig'])**2)/dof)
         
         # keep fit parameters if lowest chi-sq
-        if np.sum((residual/dat['in_sig'])**2/dof) == min(chisq):
+        if np.sum((residual/dat['in_sig'])**2)/dof == min(chisq):
             best_popt = popt
             best_period = period
             # store high resolution fit

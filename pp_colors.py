@@ -30,22 +30,13 @@ import matplotlib.pyplot as plt
 from astropy.time import Time
 from astropy.table import Table, Column
 from astropy.io import ascii
+from numpy.polynomial import Polynomial
 from scipy.optimize import curve_fit as cf
 
 
 ##########################
-# Functions for lightcurve fitting
+# Fourier series function definition
 ##########################
-# Line
-def linear(t,a,b):
-    return a*t + b
-# 2nd order polynomial
-def quadratic(t,a,b,c):
-    return a*t**2 + b*t + c
-# 3rd order polynomial
-def cubic(t,a,b,c,d):
-    return a*t**3 + b*t**2 + c*t + d
-# Fourier series
 def fourier(t, *a):
 
     # first order term
@@ -115,70 +106,55 @@ def read_phot_table(file):
 
 
 ##########################
-# Determine lightcurve correction
+# Determine polynomial fit to lightcurve
 ##########################
-def lc_correct(ref_mag_table,jd0):
+def lc_polyfit(ref_mag_table,jd0,poly_n=0):
     """
-    Determine lightcurve variations in referenece filter photometry
+    Polynomial fit to lightcurve variations in referenece filter photometry
     """
-    
-    #try linear fit
-    coeff1,cov1 = cf(linear,ref_mag_table['julian_date']-jd0,ref_mag_table['mag'],
-                     sigma=ref_mag_table['sig'])
-    resid1 = ref_mag_table['mag'] - linear(ref_mag_table['julian_date']-jd0, *coeff1)
-    chi1 = sum((resid1/ref_mag_table['sig'])**2)
-    fit1 = linear(ref_mag_table['julian_date']-jd0, *coeff1)
-                     
-    #try quadratic fit, if enough data points
-    if len(ref_mag_table['julian_date']) > 2:
-        coeff2,cov2 = cf(quadratic,ref_mag_table['julian_date']-jd0,ref_mag_table['mag'],
-                         sigma=ref_mag_table['sig'])
-        resid2 = ref_mag_table['mag'] - quadratic(ref_mag_table['julian_date']-jd0, *coeff2)
-        chi2 = sum((resid2/ref_mag_table['sig'])**2)
-        fit2 = quadratic(ref_mag_table['julian_date']-jd0, *coeff2)
-    else: chi2 = 1000.
-
-    #try cubic fit, if enough data points
-    if len(ref_mag_table['julian_date']) > 3:
-        coeff3,cov3 = cf(cubic,ref_mag_table['julian_date']-jd0,ref_mag_table['mag'],
-                         sigma=ref_mag_table['sig'])
-        resid3 = ref_mag_table['mag'] - cubic(ref_mag_table['julian_date']-jd0, *coeff3)
-        chi3 = sum((resid3/ref_mag_table['sig'])**2)
-        fit3 = cubic(ref_mag_table['julian_date']-jd0, *coeff3)
-    else: chi3 = 1000.
-
-    # plot result of fits
+    # setup output plot
     fig2 = plt.figure()
     plt.gca().invert_yaxis()
-    
-    plt.errorbar(ref_mag_table['julian_date']-jd0,ref_mag_table['mag'],ref_mag_table['sig'],
+    time_day = ref_mag_table['julian_date']-jd0
+    # data points
+    plt.errorbar(time_day,ref_mag_table['mag'],ref_mag_table['sig'],
                  marker='o',ecolor='0.7',ls='None',markersize=4)
 
-    #best fit
-    # can force best fit by manually setting chi value = 0, eg first order/linear term chi1 = 0
-    chi1 = 0
-    if min(chi1,chi2,chi3) == chi1:
-        coeff = coeff1
-        plt.plot(ref_mag_table['julian_date']-jd0,fit1,
-                 label=r'linear $\longleftarrow best\ fit$',linewidth=2)
-        if chi2 != 1000.:
-            plt.plot(ref_mag_table['julian_date']-jd0,fit2,label='quadratic',linewidth=0.5)
-        if chi3 != 1000.:
-            plt.plot(ref_mag_table['julian_date']-jd0,fit3,label='cubic',linewidth=0.5)
-    elif min(chi1,chi2,chi3) == chi2:
-        coeff = coeff2
-        plt.plot(ref_mag_table['julian_date']-jd0,fit1,label='linear',linewidth=0.5)
-        if chi2 != 1000.:
-            plt.plot(ref_mag_table['julian_date']-jd0,fit2,
-                     label=r'quadratic $\longleftarrow best\ fit$',linewidth=2)
-        if chi3 != 1000.:
-            plt.plot(ref_mag_table['julian_date']-jd0,fit3,label='cubic',linewidth=0.5)
-    elif min(chi1,chi2,chi3) == chi3:
-        coeff = coeff3
-        plt.plot(ref_mag_table['julian_date']-jd0,fit1,label='linear',linewidth=0.5)
-        plt.plot(ref_mag_table['julian_date']-jd0,fit2,label='quadratic',linewidth=0.5)
-        plt.plot(ref_mag_table['julian_date']-jd0,fit3,
-                 label=r'cubic $\longleftarrow best\ fit$',linewidth=2)
+    # if polynomial order specified
+    if poly_n != 0:
+        fit = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], poly_n, w=1/ref_mag_table['sig']**2)
+        
+        plt.plot(time_day,fit(ref_mag_table['julian_date']), label=str(poly_n) + ' order fit',linewidth=0.5)
+
+    # if polynomial order not specified try order 1-3 to find best fit
+    else:
+        #try linear fit
+        fit1 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 1, w=1/ref_mag_table['sig']**2)
+        resid1 = ref_mag_table['mag'] - fit1(ref_mag_table['julian_date'])
+        dof = len(ref_mag_table['julian_date']) - 2
+        chi1 = sum((resid1/ref_mag_table['sig'])**2)/dof
+
+        #try quadratic fit, if enough data points
+        if len(ref_mag_table['julian_date']) > 2:
+            fit2 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 2, w=1/ref_mag_table['sig']**2)
+            resid2 = ref_mag_table['mag'] - fit2(ref_mag_table['julian_date'])
+            dof = len(ref_mag_table['julian_date']) - 3
+            chi2 = sum((resid2/ref_mag_table['sig'])**2)/dof
+        else: chi2 = 1000.
+
+        #try cubic fit, if enough data points
+        if len(ref_mag_table['julian_date']) > 3:
+            fit3 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 3, w=1/ref_mag_table['sig']**2)
+            resid3 = ref_mag_table['mag'] - fit3(ref_mag_table['julian_date'])
+            dof = len(ref_mag_table['julian_date']) - 4
+            chi3 = sum((resid3/ref_mag_table['sig'])**2)/dof
+        else: chi3 = 1000.
+
+    print(chi1,chi2,chi3)
+
+    plt.plot(time_day,fit1(ref_mag_table['julian_date']),label='linear',linewidth=0.5)
+    plt.plot(time_day,fit2(ref_mag_table['julian_date']), label='quadratic',linewidth=0.5)
+    plt.plot(time_day,fit3(ref_mag_table['julian_date']), label=r'cubic $\longleftarrow best\ fit$',linewidth=2)
 
     plt.title('Reference filter: '+ref_mag_table['[7]'][0])
     plt.xlabel('Julian Date - '+str(jd0))
@@ -186,7 +162,7 @@ def lc_correct(ref_mag_table,jd0):
     plt.legend(loc='lower center')
     fig2.savefig('lightcurve.png',format='png',dpi=300)
 
-    return coeff
+    return fit1.coef
 
 ##########################
 # Conert magnitude to reflectance
@@ -401,18 +377,33 @@ def pp_colors(filenames):
     mask2 = color_summary['ref_filter'] != color_summary['filter2']
     color_summary = color_summary[mask2]
 
-    #determine lightcurve correction function and reference magnitudes
+    # Calculate reference magnitudes based on lightcurve fit
     #
-    ref_mag_table = read_phot_table(avg_mags[mask]['phot_file'][0])
-    jd0 = ref_mag_table['julian_date'][0]
-    coeff = lc_correct(ref_mag_table,jd0)
-    ref_mag_calc = np.poly1d(coeff)
+    # Lightcurve correction based on stored Fourier fit
+    if lc_fit_file != '':
+        # read in fit file
+        # compute fourier series
+        # compute reference mags at f2_jd in color_summary
+        a = 1
+    # Lightcurve correction based on polynomial fit of specified order
+    elif poly_n != 0:
+        a = 1
+        # polynomial fit
+    # Determine best fit polynomial (order 1-3) to lightcurve
+    else:
+        # Reference magnitudes
+        ref_mag_table = read_phot_table(avg_mags[mask]['phot_file'][0])
+        # Intial time
+        jd0 = ref_mag_table['julian_date'][0]
+        # Best fit polynomial coefficients
+        coeff = lc_polyfit(ref_mag_table,jd0)
+        # Best fit polynomial
+        best_fit_poly = Polynomial(coeff)
+        # Reference magnitide calculated at times of other exposures
+        ref_mag_calc = np.round(best_fit_poly(color_summary['f2_jd']-jd0),4)
 
-    # lightcurve correct
-    #
-    a = 1
-    
-    color_summary['ref_mag'] = np.round(ref_mag_calc(color_summary['f2_jd']-jd0),4)
+    # Lightcurve corrected reference magnitudes
+    color_summary['ref_mag'] = ref_mag_calc
 
     # error on computed reference filter magnitude is standard error on mean of all measurements
     # this method may not be ideal because it doesnt deal with lightcurve variability
@@ -423,11 +414,8 @@ def pp_colors(filenames):
     #
     # error on computed reference filter magnitude is standard deviation on difference between
     # computed magnitudes (ref_mag_calc) and measured mags (ref_mag_table)
-    ref_mag_residuals = ref_mag_table['mag'] - ref_mag_calc(ref_mag_table['julian_date']-jd0)
+    ref_mag_residuals = ref_mag_table['mag'] - best_fit_poly(ref_mag_table['julian_date']-jd0)
     color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
-
-
-
 
 
 
@@ -506,23 +494,35 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Photometry pipeline data files.')
     parser.add_argument('files', help='*.dat files to process',nargs='+')
-    parser.add_argument('-ref_filt', help='Reference filter',default='')
-    parser.add_argument('-facility', help='Telescope/instrument',
+    parser.add_argument('-lc_fit', help='Lightcurve fit parameter file',default='')
+    parser.add_argument('-poly_n', help='Polynomial order to fit lightcurve',default=0, type=int)
+    parser.add_argument('-ref_filt', help='Reference filter, options: <B|V|R|I|u|g|r|i|z|SDSS-U|SDSS_G|SDSS-R|SDSS-I|SDSS-Z>',default='')
+    parser.add_argument('-facility', help='Telescope/instrument (str)',
                         default='')
-    parser.add_argument('-date', help='Date of observations',default='')
-    parser.add_argument('-target', help='Object designation',default='')
+    parser.add_argument('-date', help='Date of observations (str)',default='')
+    parser.add_argument('-target', help='Object designation (str)',default='---')
 
     args = parser.parse_args()
     filenames = sorted(args.files)
+    lc_fit_file = args.lc_fit
+    poly_n = args.poly_n
     facility = args.facility
     date_obs = args.date
     target = args.target
     reference_filter = args.ref_filt
 
+    # check for sufficient number of photometry files
     if len(filenames) < 3:
         print('Only '+str(len(filenames))+' photometry files found.')
         print('At least 3 required. Exiting.')
         sys.exit()
+
+    # check for lightcurve fit parameter file if specified
+    if lc_fit_file != '':
+        if not os.path.exists(lc_fit_file):
+            print('Lightcurve fit parmeter file not found: '+lc_fit_file)
+            print('Exiting')
+            sys.exit()
 
     # retrive facility and date info from data file
     dat = read_phot_table(filenames[0])
