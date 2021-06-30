@@ -110,59 +110,73 @@ def read_phot_table(file):
 ##########################
 def lc_polyfit(ref_mag_table,jd0,poly_n=0):
     """
-    Polynomial fit to lightcurve variations in referenece filter photometry
+    Polynomial fit to lightcurve variations in referenece filter
     """
     # setup output plot
     fig2 = plt.figure()
     plt.gca().invert_yaxis()
     time_day = ref_mag_table['julian_date']-jd0
-    # data points
+    # plot data
     plt.errorbar(time_day,ref_mag_table['mag'],ref_mag_table['sig'],
                  marker='o',ecolor='0.7',ls='None',markersize=4)
 
-    # if polynomial order specified
+    # If polynomial order specified, fit and plot
     if poly_n != 0:
         fit = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], poly_n, w=1/ref_mag_table['sig']**2)
         
-        plt.plot(time_day,fit(ref_mag_table['julian_date']), label=str(poly_n) + ' order fit',linewidth=0.5)
+        plt.plot(time_day,fit(ref_mag_table['julian_date']), label='Order '+str(poly_n) + ' polynomial',linewidth=0.5)
 
-    # if polynomial order not specified try order 1-3 to find best fit
+    # If polynomial order not specified try order 1-3 to find best fit
     else:
-        #try linear fit
+        # Try linear fit
         fit1 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 1, w=1/ref_mag_table['sig']**2)
         resid1 = ref_mag_table['mag'] - fit1(ref_mag_table['julian_date'])
         dof = len(ref_mag_table['julian_date']) - 2
-        chi1 = sum((resid1/ref_mag_table['sig'])**2)/dof
+        chi1 = sum((resid1/(ref_mag_table['sig']))**2)/dof
 
-        #try quadratic fit, if enough data points
+        # Try quadratic fit, if enough data points
         if len(ref_mag_table['julian_date']) > 2:
             fit2 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 2, w=1/ref_mag_table['sig']**2)
             resid2 = ref_mag_table['mag'] - fit2(ref_mag_table['julian_date'])
             dof = len(ref_mag_table['julian_date']) - 3
-            chi2 = sum((resid2/ref_mag_table['sig'])**2)/dof
+            chi2 = sum((resid2/(ref_mag_table['sig']))**2)/dof
         else: chi2 = 1000.
 
-        #try cubic fit, if enough data points
+        # Try cubic fit, if enough data points
         if len(ref_mag_table['julian_date']) > 3:
             fit3 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 3, w=1/ref_mag_table['sig']**2)
             resid3 = ref_mag_table['mag'] - fit3(ref_mag_table['julian_date'])
             dof = len(ref_mag_table['julian_date']) - 4
-            chi3 = sum((resid3/ref_mag_table['sig'])**2)/dof
+            chi3 = sum((resid3/(ref_mag_table['sig']))**2)/dof
         else: chi3 = 1000.
+    
+        # Determine and overplot best fit: linear, quadratic or cubic
+        labels = ['linear','quadratic','cubic']
+        widths = [0.5,0.5,0.5]
+        if chi1 < chi2 and chi1 < chi3:
+            fit = fit1
+            labels[0] = r'linear $\longleftarrow best\ fit$'
+            widths[0] = 2
+        if chi2 < chi1 and chi2 < chi3:
+            fit = fit2
+            labels[1] = r'quadratic $\longleftarrow best\ fit$'
+            widths[1] = 2
+        if chi3 < chi1 and chi3 < chi2:
+            fit = fit3
+            labels[2] = r'linear $\longleftarrow best\ fit$'
+            widths[2] = 2
+        plt.plot(time_day,fit1(ref_mag_table['julian_date']),label=labels[0],lw=widths[0])
+        plt.plot(time_day,fit2(ref_mag_table['julian_date']), label=labels[1],lw=widths[1])
+        plt.plot(time_day,fit3(ref_mag_table['julian_date']), label=labels[2],lw=widths[2])
 
-    print(chi1,chi2,chi3)
-
-    plt.plot(time_day,fit1(ref_mag_table['julian_date']),label='linear',linewidth=0.5)
-    plt.plot(time_day,fit2(ref_mag_table['julian_date']), label='quadratic',linewidth=0.5)
-    plt.plot(time_day,fit3(ref_mag_table['julian_date']), label=r'cubic $\longleftarrow best\ fit$',linewidth=2)
-
+    # Annotatte plot
     plt.title('Reference filter: '+ref_mag_table['[7]'][0])
     plt.xlabel('Julian Date - '+str(jd0))
     plt.ylabel('Apparent Magnitude')
     plt.legend(loc='lower center')
     fig2.savefig('lightcurve.png',format='png',dpi=300)
 
-    return fit1.coef
+    return fit.coef
 
 ##########################
 # Conert magnitude to reflectance
@@ -385,22 +399,19 @@ def pp_colors(filenames):
         # compute fourier series
         # compute reference mags at f2_jd in color_summary
         a = 1
-    # Lightcurve correction based on polynomial fit of specified order
-    elif poly_n != 0:
-        a = 1
-        # polynomial fit
-    # Determine best fit polynomial (order 1-3) to lightcurve
+    # Lightcurve correction based on polynomial fit
     else:
-        # Reference magnitudes
+        # Reference magnitudes and first time step
         ref_mag_table = read_phot_table(avg_mags[mask]['phot_file'][0])
-        # Intial time
         jd0 = ref_mag_table['julian_date'][0]
-        # Best fit polynomial coefficients
-        coeff = lc_polyfit(ref_mag_table,jd0)
-        # Best fit polynomial
+        
+        # Best fit polynomial coefficients and function
+        coeff = lc_polyfit(ref_mag_table,jd0,poly_n)
         best_fit_poly = Polynomial(coeff)
+        
         # Reference magnitide calculated at times of other exposures
         ref_mag_calc = np.round(best_fit_poly(color_summary['f2_jd']-jd0),4)
+        print(best_fit_poly(color_summary['f2_jd']-jd0))
 
     # Lightcurve corrected reference magnitudes
     color_summary['ref_mag'] = ref_mag_calc
