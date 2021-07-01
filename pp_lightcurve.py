@@ -200,7 +200,7 @@ if __name__ == '__main__':
     # First time stamp
     jd0 = min(dat['julian_date'])
     
-    # relative time in unit hours
+    # relative time in hours
     time_hr = (dat['julian_date']-jd0)*24.
 
     # Correct for LDT shutter delay of 2.05s = 2.37e-5

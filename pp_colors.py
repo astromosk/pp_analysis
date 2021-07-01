@@ -15,11 +15,17 @@ Optional Arguments:
     -date: Date of observation string for labeling plots
     -target: Object designation string for labeling plots
     -lc_fit: Lightcurve fit parameter file (str)
-    -poly_n: Polynomial order to fit lightcurve (str)
+    -poly_n: Polynomial order to fit lightcurve (int)
 
 Description:
 
-    If lc_fit is specified that take precednce over poly_n, ie the fourier data is preferred for LC correction
+    If lc_fit_file is specified that takes precednce over poly_n, ie the fourier data is preferred for LC correction
+    lc_fit_file must follow specific format. Example:
+        Didymos_LDT_20210114.dat
+        Initial_JD 2459228.8219476
+        Best_fit_period_hr 2.288888888888889
+        Fit_order 8
+        0.010070672183684928 0.018218290935414258 0.009205650435514702 0.03303955635927658 0.004665478546168273 0.013725440401795913 -0.007517734301428316 0.008279528434352324 0.0037762066338553 -0.0010876679373182617 -0.006184256632753783 -0.0013181789778095843 -0.0030458392924769687 -0.0028666586981097196 -0.002052616294039948 -0.004813869257206906
     
 Usage:
     pp_colors.py *.dat
@@ -30,7 +36,6 @@ import os
 import sys
 import wget
 
-import datetime as dt
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -44,17 +49,21 @@ from scipy.optimize import curve_fit as cf
 ##########################
 # Fourier series function definition
 ##########################
-def fourier(t, *a):
+def fourier(t, period, a):
+    '''
+    Construct Fourier function.
+    Order specified by number of coefficients in array a.
+    Both input times t and period expected in [hr]
+    '''
 
-    # first order term
+    # first order Fourier term
     foufunc = a[0] * np.sin(2*np.pi/period*t) + a[1] * np.cos(2*np.pi/period*t)
-    
+
     # construct higher order terms based on number of input parameters *a
     for deg in range(1, int(len(a)/2)):
         foufunc += a[2*deg] * np.sin(2*np.pi*(deg+1)/period*t) + a[2*deg+1] * np.cos(2*np.pi*(deg+1)/period*t)
 
     return foufunc
-
 
 ##########################
 # Filter specs
@@ -111,6 +120,40 @@ def read_phot_table(file):
     
     return t
 
+##########################
+# Plot Fourier fit onto reference magnitudes
+##########################
+def lc_fourierplot(ref_mag_table,period,fit_pars,fourier_jd0):
+
+    # setup output plot
+    fig2 = plt.figure()
+    plt.gca().invert_yaxis()
+
+    # time in days relative to start of color sequence
+    jd0 = min(ref_mag_table['julian_date'])
+    time_day = ref_mag_table['julian_date']-jd0
+
+    # plot reference magnitudes
+    plt.errorbar(time_day,ref_mag_table['mag'],ref_mag_table['sig'],
+                  marker='o',ecolor='0.7',ls='None',markersize=4)
+
+    # time in hours relative to epoch of Fourier fit
+    ref_time_hr = (ref_mag_table['julian_date']-fourier_jd0)*24.
+    
+    # Computed reference mags
+    ref_data = fourier(ref_time_hr, period, fit_pars) + np.mean(ref_mag_table['mag'])
+
+    # Plot computed values
+    plt.plot(time_day,ref_data, label='Fourier fit from file',linewidth=0.5)
+    
+    # Annotate plot
+    plt.title('Reference filter: '+ref_mag_table['[7]'][0])
+    plt.xlabel('Julian Date - '+str(jd0))
+    plt.ylabel('Apparent Magnitude')
+    plt.legend(loc='lower center')
+    fig2.savefig('lightcurve.png',format='png',dpi=300)
+
+    return
 
 ##########################
 # Determine polynomial fit to lightcurve
@@ -408,38 +451,55 @@ def pp_colors(filenames):
 
     # Calculate reference magnitudes based on lightcurve fit
     #
+    # Magnitudes in reference filter
+    ref_mag_table = read_phot_table(avg_mags[mask]['phot_file'][0])
+    jd0 = min(ref_mag_table['julian_date'])
+
     # Lightcurve correction based on stored Fourier fit
-    print('Fit lightcurve variations in refernce filter...')
     if lc_fit_file != '':
-        # read in fit file
-        # compute fourier series
-        # compute reference mags at f2_jd in color_summary
-        a = 1
+        print('Use Fourier fit to correct reference filter variations...')
+
+        # Read in fit parameters file
+        f = open(lc_fit_file,'r')
+        fourier_phot_file = f.readline().strip()
+        fourier_jd0 = float(f.readline().strip ().split()[1])
+        period = float(f.readline().strip().split()[1])
+        fit_order = int(f.readline().strip().split()[1])
+        fit_pars = [float(par) for par in f.readline().strip().split()]
+        f.close()
+
+        # Time in hours relative to epoch of Fourier fit for color data
+        time_hr = (color_summary['f2_jd']-fourier_jd0)*24.
+
+        # Reference magnitide calculated at times of other exposures
+        color_summary['ref_mag'] = np.round(fourier(time_hr,period,fit_pars) + np.mean(ref_mag_table['mag']),4)
+
+        # Plot reference magnitudes with Fourier fit
+        lc_fourierplot(ref_mag_table,period,fit_pars,fourier_jd0)
+
+        # Time in hours relative to epoch of Fourier fit for reference filter
+        ref_time_hr = (ref_mag_table['julian_date']-fourier_jd0)*24.
+        
+        # Error on calculated reference mags equal to the standard deviation of
+        # the residuals between the Fourier model and the data points
+        ref_mag_residuals = ref_mag_table['mag'] - (fourier(ref_time_hr,period,fit_pars) + np.mean(ref_mag_table['mag']))
+        color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
+        #color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
+
     # Lightcurve correction based on polynomial fit
     else:
-        # Reference magnitudes and first time step
-        ref_mag_table = read_phot_table(avg_mags[mask]['phot_file'][0])
-        jd0 = ref_mag_table['julian_date'][0]
-        
+        print('Fit lightcurve variations in reference filter...')
+       
         # Best fit polynomial function
         best_fit = lc_polyfit(ref_mag_table,jd0,poly_n)
         
         # Reference magnitide calculated at times of other exposures
         color_summary['ref_mag'] = np.round(best_fit(color_summary['f2_jd']),4)
 
-
-    # error on computed reference filter magnitude is standard error on mean of all measurements
-    # this method may not be ideal because it doesnt deal with lightcurve variability
-    #color_summary['ref_err'] = np.round(np.std(ref_mag_table['mag'])/len(ref_mag_table),4)
-    #
-    # error on computed reference filter magnitude is mean error of all measurements
-    #color_summary['ref_err'] = np.round(np.average(ref_mag_table['sig']),4)
-    #
-    # error on computed reference filter magnitude is standard deviation on difference between
-    # computed magnitudes (ref_mag_calc) and measured mags (ref_mag_table)
-    ref_mag_residuals = ref_mag_table['mag'] - best_fit(ref_mag_table['julian_date'])
-    color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
-
+        # Error on calculated reference mags equal to the standard deviation of
+        # the residuals between the polynomial model and the data points
+        ref_mag_residuals = ref_mag_table['mag'] - best_fit(ref_mag_table['julian_date'])
+        color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
 
 
     # compute color relative to computed reference magnitude for each frame
@@ -448,7 +508,6 @@ def pp_colors(filenames):
     # error on color is error of magnitudes addedd in quadrature
     color_summary['color_err'] = np.round(np.sqrt(color_summary['ref_err']**2 +
                                            color_summary['f2_err']**2),4)
-
 
     #compute average values for each color across all images
     #
