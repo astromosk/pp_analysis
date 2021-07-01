@@ -218,7 +218,7 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
             print('   Best fit is 2nd order polynomial')
         if chi3 < chi1 and chi3 < chi2:
             fit = fit3
-            labels[2] = r'linear $\longleftarrow best\ fit$'
+            labels[2] = r'cubic $\longleftarrow best\ fit$'
             widths[2] = 2
             print('   Best fit is 3rd order polynomial')
 
