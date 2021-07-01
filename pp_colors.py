@@ -8,12 +8,19 @@ Parameters:
 
 Optional Arguments:
     -ref_filt: Reference filter used to monitor lightcurve variations (str)
-                If not specified, filter with most number of exposure and highest S/N
-                is chosen as reference.
+                If not specified, filter with most exposures and highest S/N
+                is chosen as reference. Available options are:
+                <B|V|R|I|u|g|r|i|z|SDSS-U|SDSS_G|SDSS-R|SDSS-I|SDSS-Z>
     -facility: Telescope/instrument string for labeling plots
     -date: Date of observation string for labeling plots
     -target: Object designation string for labeling plots
+    -lc_fit: Lightcurve fit parameter file (str)
+    -poly_n: Polynomial order to fit lightcurve (str)
 
+Description:
+
+    If lc_fit is specified that take precednce over poly_n, ie the fourier data is preferred for LC correction
+    
 Usage:
     pp_colors.py *.dat
     
@@ -122,12 +129,15 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
 
     # If polynomial order specified, fit and plot
     if poly_n != 0:
+        print('   Fitting data with order '+str(poly_n)+' polynomial')
         fit = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], poly_n, w=1/ref_mag_table['sig']**2)
         
         plt.plot(time_day,fit(ref_mag_table['julian_date']), label='Order '+str(poly_n) + ' polynomial',linewidth=0.5)
 
     # If polynomial order not specified try order 1-3 to find best fit
     else:
+        print('   No polynomial order specified. Trying orders 1, 2 and 3.')
+ 
         # Try linear fit
         fit1 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 1, w=1/ref_mag_table['sig']**2)
         resid1 = ref_mag_table['mag'] - fit1(ref_mag_table['julian_date'])
@@ -157,26 +167,30 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
             fit = fit1
             labels[0] = r'linear $\longleftarrow best\ fit$'
             widths[0] = 2
+            print('   Best fit is 1st order polynomial')
         if chi2 < chi1 and chi2 < chi3:
             fit = fit2
             labels[1] = r'quadratic $\longleftarrow best\ fit$'
             widths[1] = 2
+            print('   Best fit is 2nd order polynomial')
         if chi3 < chi1 and chi3 < chi2:
             fit = fit3
             labels[2] = r'linear $\longleftarrow best\ fit$'
             widths[2] = 2
-        plt.plot(time_day,fit1(ref_mag_table['julian_date']),label=labels[0],lw=widths[0])
+            print('   Best fit is 3rd order polynomial')
+
+        plt.plot(time_day,fit1(ref_mag_table['julian_date']), label=labels[0],lw=widths[0])
         plt.plot(time_day,fit2(ref_mag_table['julian_date']), label=labels[1],lw=widths[1])
         plt.plot(time_day,fit3(ref_mag_table['julian_date']), label=labels[2],lw=widths[2])
 
-    # Annotatte plot
+    # Annotate plot
     plt.title('Reference filter: '+ref_mag_table['[7]'][0])
     plt.xlabel('Julian Date - '+str(jd0))
     plt.ylabel('Apparent Magnitude')
     plt.legend(loc='lower center')
     fig2.savefig('lightcurve.png',format='png',dpi=300)
 
-    return fit.coef
+    return fit
 
 ##########################
 # Conert magnitude to reflectance
@@ -219,6 +233,7 @@ def fit_taxonomy(wav,ref,ref_err):
 
     # retrieve taxonomic template data
     url = 'http://www2.lowell.edu/users/nmosko/busdemeo-meanspectra.csv'
+    print('silly status bar that I dont know how to remove:')
     tax_file = wget.download(url)
     print('')
 
@@ -394,6 +409,7 @@ def pp_colors(filenames):
     # Calculate reference magnitudes based on lightcurve fit
     #
     # Lightcurve correction based on stored Fourier fit
+    print('Fit lightcurve variations in refernce filter...')
     if lc_fit_file != '':
         # read in fit file
         # compute fourier series
@@ -405,16 +421,12 @@ def pp_colors(filenames):
         ref_mag_table = read_phot_table(avg_mags[mask]['phot_file'][0])
         jd0 = ref_mag_table['julian_date'][0]
         
-        # Best fit polynomial coefficients and function
-        coeff = lc_polyfit(ref_mag_table,jd0,poly_n)
-        best_fit_poly = Polynomial(coeff)
+        # Best fit polynomial function
+        best_fit = lc_polyfit(ref_mag_table,jd0,poly_n)
         
         # Reference magnitide calculated at times of other exposures
-        ref_mag_calc = np.round(best_fit_poly(color_summary['f2_jd']-jd0),4)
-        print(best_fit_poly(color_summary['f2_jd']-jd0))
+        color_summary['ref_mag'] = np.round(best_fit(color_summary['f2_jd']),4)
 
-    # Lightcurve corrected reference magnitudes
-    color_summary['ref_mag'] = ref_mag_calc
 
     # error on computed reference filter magnitude is standard error on mean of all measurements
     # this method may not be ideal because it doesnt deal with lightcurve variability
@@ -425,7 +437,7 @@ def pp_colors(filenames):
     #
     # error on computed reference filter magnitude is standard deviation on difference between
     # computed magnitudes (ref_mag_calc) and measured mags (ref_mag_table)
-    ref_mag_residuals = ref_mag_table['mag'] - best_fit_poly(ref_mag_table['julian_date']-jd0)
+    ref_mag_residuals = ref_mag_table['mag'] - best_fit(ref_mag_table['julian_date'])
     color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
 
 
@@ -467,7 +479,7 @@ def pp_colors(filenames):
     avg_mags.sort('wavelength')
     ref, ref_err = mag_to_ref(avg_mags,avg_colors,ref_filt,color_summary['ref_err'][0])
     
-    # find best fit SMASS taxonomy
+    # Find best fit SMASS taxonomy
     print('Find taxonomic type...')
     wav = avg_mags['wavelength']
     taxa, rms = fit_taxonomy(wav,ref,ref_err)
