@@ -510,7 +510,6 @@ def pp_colors(filenames):
                                            color_summary['f2_err']**2),4)
 
     #compute average values for each color across all images
-    #
     unique_colors = np.unique(color_summary['color_name'])
     for i in range(len(unique_colors)):
         mask3 = color_summary['color_name'] == unique_colors[i]

@@ -42,6 +42,7 @@ def make_plots(best_period,fit,periods,chisq,power,frequency):
     plt.ylabel('Apparent Magnitude')
     plt.xlabel('Time (hr)')
     tit = photfile.replace('photometry_','').replace('.dat','')
+    if tit[0] == '_': tit[0] = ''
     plt.title(tit,fontsize=8)
     plt.tight_layout()
     plt.savefig(tit+'_lightcurve.png',format='png',dpi=300)
