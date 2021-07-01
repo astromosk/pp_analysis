@@ -49,19 +49,21 @@ from scipy.optimize import curve_fit as cf
 ##########################
 # Fourier series function definition
 ##########################
-def fourier(t, period, a):
+def fourier(t, period, t0, a):
     '''
     Construct Fourier function.
     Order specified by number of coefficients in array a.
-    Both input times t and period expected in [hr]
     '''
 
+    # convert period to days
+    P = period / 24.
+
     # first order Fourier term
-    foufunc = a[0] * np.sin(2*np.pi/period*t) + a[1] * np.cos(2*np.pi/period*t)
+    foufunc = a[0] * np.sin(2*np.pi/P*(t-t0)) + a[1] * np.cos(2*np.pi/P*(t-t0))
 
     # construct higher order terms based on number of input parameters *a
     for deg in range(1, int(len(a)/2)):
-        foufunc += a[2*deg] * np.sin(2*np.pi*(deg+1)/period*t) + a[2*deg+1] * np.cos(2*np.pi*(deg+1)/period*t)
+        foufunc += a[2*deg] * np.sin(2*np.pi*(deg+1)/P*(t-t0)) + a[2*deg+1] * np.cos(2*np.pi*(deg+1)/P*(t-t0))
 
     return foufunc
 
@@ -137,21 +139,22 @@ def lc_fourierplot(ref_mag_table,period,fit_pars,fourier_jd0):
     plt.errorbar(time_day,ref_mag_table['mag'],ref_mag_table['sig'],
                   marker='o',ecolor='0.7',ls='None',markersize=4)
 
-    # time in hours relative to epoch of Fourier fit
-    ref_time_hr = (ref_mag_table['julian_date']-fourier_jd0)*24.
-    
+    # time in days relative to epoch of Fourier fit
+    ref_time_d = (ref_mag_table['julian_date']-jd0)
+    hires_time = np.linspace(min(ref_time_d),max(ref_time_d),1000)
+
     # Computed reference mags
-    ref_data = fourier(ref_time_hr, period, fit_pars) + np.mean(ref_mag_table['mag'])
+    ref_data = fourier(hires_time, period, fourier_jd0, fit_pars) + np.mean(ref_mag_table['mag'])
 
     # Plot computed values
-    plt.plot(time_day,ref_data, label='Fourier fit from file',linewidth=0.5)
+    plt.plot(hires_time,ref_data, label='Fourier fit from file',linewidth=0.5)
     
     # Annotate plot
     plt.title('Reference filter: '+ref_mag_table['[7]'][0])
     plt.xlabel('Julian Date - '+str(jd0))
     plt.ylabel('Apparent Magnitude')
     plt.legend(loc='lower center')
-    fig2.savefig('lightcurve.png',format='png',dpi=300)
+    fig2.savefig('lightcurve.png',format='png',dpi=200)
 
     return
 
@@ -231,7 +234,7 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
     plt.xlabel('Julian Date - '+str(jd0))
     plt.ylabel('Apparent Magnitude')
     plt.legend(loc='lower center')
-    fig2.savefig('lightcurve.png',format='png',dpi=300)
+    fig2.savefig('lightcurve.png',format='png',dpi=200)
 
     return fit
 
@@ -276,7 +279,7 @@ def fit_taxonomy(wav,ref,ref_err):
 
     # retrieve taxonomic template data
     url = 'http://www2.lowell.edu/users/nmosko/busdemeo-meanspectra.csv'
-    print('silly status bar that I dont know how to remove:')
+    print('silly status bar:')
     tax_file = wget.download(url)
     print('')
 
@@ -330,7 +333,7 @@ def fit_taxonomy(wav,ref,ref_err):
     plt.title(ref_plot_title)
     plt.legend(loc='lower center')
 
-    fig3.savefig('reflectance.png',format='png',dpi=300)
+    fig3.savefig('reflectance.png',format='png',dpi=200)
 
     os.remove(tax_file)
 
@@ -406,7 +409,7 @@ def pp_colors(filenames):
     plt.xlabel('Julian Date')
     plt.ylabel('Apparent Magnitude')
     plt.legend()
-    fig1.savefig('timeSeries.png',format='png',dpi=300)
+    fig1.savefig('timeSeries.png',format='png',dpi=200)
 
     # Determine reference filter for tracking lightcurve based on
     # band with most observations + highest S/N or user specification
@@ -468,23 +471,22 @@ def pp_colors(filenames):
         fit_pars = [float(par) for par in f.readline().strip().split()]
         f.close()
 
-        # Time in hours relative to epoch of Fourier fit for color data
-        time_hr = (color_summary['f2_jd']-fourier_jd0)*24.
+        # Time in days relative to epoch of Fourier fit for color data
+        time_d = (color_summary['f2_jd']-fourier_jd0)
 
         # Reference magnitide calculated at times of other exposures
-        color_summary['ref_mag'] = np.round(fourier(time_hr,period,fit_pars) + np.mean(ref_mag_table['mag']),4)
+        color_summary['ref_mag'] = np.round(fourier(time_d,period,fourier_jd0,fit_pars) + np.mean(ref_mag_table['mag']),4)
 
         # Plot reference magnitudes with Fourier fit
         lc_fourierplot(ref_mag_table,period,fit_pars,fourier_jd0)
 
-        # Time in hours relative to epoch of Fourier fit for reference filter
-        ref_time_hr = (ref_mag_table['julian_date']-fourier_jd0)*24.
+        # Time in days relative to epoch of Fourier fit for reference filter
+        ref_time_d = (ref_mag_table['julian_date']-fourier_jd0)
         
         # Error on calculated reference mags equal to the standard deviation of
         # the residuals between the Fourier model and the data points
-        ref_mag_residuals = ref_mag_table['mag'] - (fourier(ref_time_hr,period,fit_pars) + np.mean(ref_mag_table['mag']))
+        ref_mag_residuals = ref_mag_table['mag'] - (fourier(ref_time_d,period,fourier_jd0,fit_pars) + np.mean(ref_mag_table['mag']))
         color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
-        #color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
 
     # Lightcurve correction based on polynomial fit
     else:
