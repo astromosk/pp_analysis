@@ -74,7 +74,7 @@ def make_plots(best_period,fit,periods,chisq,power,frequency):
 
 
     # Best fit Fourier function
-    phase = np.linspace(0,1,1000)/best_period
+    phase = np.linspace(0,1,1000)
     plt.plot(phase, fit)
 
     plt.axis([-0.1,1.1,1.5*max(dat['norm_mag'][dat['[8]'] == 0]),1.5*min(dat['norm_mag'][dat['[8]'] == 0])])
