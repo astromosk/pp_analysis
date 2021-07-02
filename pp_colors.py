@@ -123,7 +123,7 @@ def read_phot_table(file):
 ##########################
 # Plot Fourier fit onto reference magnitudes
 ##########################
-def lc_fourierplot(ref_mag_table,period,fit_pars,t0):
+def lc_fourierplot(ref_mag_table,period,fit_pars,offset,t0):
 
     # setup output plot
     fig2 = plt.figure()
@@ -140,7 +140,7 @@ def lc_fourierplot(ref_mag_table,period,fit_pars,t0):
                   marker='o',ecolor='0.7',ls='None',markersize=4)
 
     # Model reference mags
-    ref_data = fourier(hires_time, period, t0, fit_pars) + np.mean(ref_mag_table['mag'])
+    ref_data = fourier(hires_time, period, t0, fit_pars) + np.mean(ref_mag_table['mag']) + offset
 
     # Plot computed values
     plt.plot(hires_time,ref_data, label='Fourier fit from file',linewidth=0.5)
@@ -296,8 +296,10 @@ def fit_taxonomy(wav,ref,ref_err):
             taxa = np.append(taxa,col_name.split('_')[0])
             rootmeansq = np.sqrt(np.average((ref-rebin_smass_ref)**2))
 
-            # force to taxonmic type, uncomment to activate
-            #if 'C_Mean' == col_name: rootmeansq = 0.
+            # force to taxonmic type if specified by user
+            # TODO check that user-specified taxonomy is allowed
+            if user_tax != '':
+                if user_tax+'_Mean' == col_name: rootmeansq = 0.
 
             rms = np.append(rms,rootmeansq)
             if rootmeansq == min(rms):
@@ -467,24 +469,37 @@ def pp_colors(filenames):
         fit_pars = [float(par) for par in f.readline().strip().split()]
         f.close()
 
-        # Time in hours since start of reference filter exposures
+        # Time in hours since start of reference filter exposures, non-reference filter
         time_hr = (color_summary['f2_jd']-jd0)*24.
         # hours since epoch of lightcurve Fourier fit
         t0 = (jd0-fourier_jd0) * 24.
 
-        # Plot reference magnitudes with Fourier fit
-        lc_fourierplot(ref_mag_table,period,fit_pars,t0)
-
         # Reference magnitide calculated at times of other exposures
-        color_summary['ref_mag'] = np.round(fourier(time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag']),4)
-
-        # Time in hr since start of reference filter exposures
-        ref_time_hr = (ref_mag_table['julian_date']-jd0)*24.
+        # account for +/- 1 mag offset
         
+        # Time in hr since start of reference filter exposures, reference filter
+        ref_time_hr = (ref_mag_table['julian_date']-jd0)*24.
+
+        # Find magnitude offset that minimizes RMS between model and reference mags
+        min_resid = 1000
+        for offset in np.linspace(-1,1,1001):
+            rms = np.sqrt(np.sum((ref_mag_table['mag'] - (fourier(ref_time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag']) + offset))**2) / len(ref_mag_table['mag']))
+
+            if rms < min_resid:
+                best_offset = offset
+                min_resid = rms
+        print('   '+str(np.round(best_offset,4))+' mag offset applied to model to match data')
+
+        # Calculate reference mags at time of exposures in non-reference filters
+        color_summary['ref_mag'] = np.round(fourier(time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag'])+ best_offset,4)
+
         # Error on calculated reference mags equal to the standard deviation of
         # the residuals between the Fourier model and the data points
-        ref_mag_residuals = ref_mag_table['mag'] - (fourier(ref_time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag']))
+        ref_mag_residuals = ref_mag_table['mag'] - (fourier(ref_time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag']) + best_offset)
         color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
+
+        # Plot reference magnitudes with Fourier fit
+        lc_fourierplot(ref_mag_table,period,fit_pars,best_offset,t0)
 
     # Lightcurve correction based on polynomial fit
     else:
@@ -526,7 +541,7 @@ def pp_colors(filenames):
         # else error is reported as just the error for the single color
         if num_col > 1:
             # RMS
-            avg_col_err = np.round(np.sqrt(np.sum(color_summary[mask3]['color_err']**2)/num_col),4)
+            #avg_col_err = np.round(np.sqrt(np.sum(color_summary[mask3]['color_err']**2)/num_col),4)
             
             # standard deviation of colors
             #avg_col_err = np.round(np.std(color_summary[mask3]['color']),4)
@@ -535,10 +550,10 @@ def pp_colors(filenames):
             #avg_col_err = np.round(np.std(color_summary[mask3]['color'])/np.sqrt(num_col),4)
             
             # mean of errors
-            #avg_col_err = np.round(np.mean(color_summary[mask3]['color_err']),4)
+            avg_col_err = np.round(np.mean(color_summary[mask3]['color_err']),4)
         else:
             avg_col_err = np.round(color_summary[mask3]['color_err'],4)
-
+        
         avg_colors.add_row([unique_colors[i],avg_col,avg_col_err])
 
     # compute normalized reflectance and associated errors
@@ -581,24 +596,26 @@ def pp_colors(filenames):
 ##########################
 if __name__ == '__main__':
     
-    parser = argparse.ArgumentParser(description='Photometry pipeline data files.')
+    parser = argparse.ArgumentParser(description='Spectro-photometric analysis of data from photometry pipeline')
     parser.add_argument('files', help='*.dat files to process',nargs='+')
-    parser.add_argument('-lc_fit', help='Lightcurve fit parameter file',default='')
-    parser.add_argument('-poly_n', help='Polynomial order to fit lightcurve',default=0, type=int)
-    parser.add_argument('-ref_filt', help='Reference filter, options: <B|V|R|I|u|g|r|i|z|SDSS-U|SDSS_G|SDSS-R|SDSS-I|SDSS-Z>',default='')
+    parser.add_argument('-lc_fit', help='Lightcurve fit parameter file (str)',default='')
+    parser.add_argument('-poly_n', help='Polynomial order to fit lightcurve (int)',default=0, type=int)
+    parser.add_argument('-ref_filt', help='Reference filter (str), options: <B|V|R|I|u|g|r|i|z|SDSS-U|SDSS_G|SDSS-R|SDSS-I|SDSS-Z>',default='')
     parser.add_argument('-facility', help='Telescope/instrument (str)',
                         default='')
     parser.add_argument('-date', help='Date of observations (str)',default='')
     parser.add_argument('-target', help='Object designation (str)',default='---')
+    parser.add_argument('-tax', help='User specified taxonomic class (str), options: <A|B|C|Cb|Cg|Cgh|Ch|D|K|L|O|Q|R|S|Sa|Sq|Sr|Sv|T|V|X|Xc|Xe|Xk>',default='')
 
     args = parser.parse_args()
     filenames = sorted(args.files)
     lc_fit_file = args.lc_fit
     poly_n = args.poly_n
+    reference_filter = args.ref_filt
     facility = args.facility
     date_obs = args.date
     target = args.target
-    reference_filter = args.ref_filt
+    user_tax = args.tax
 
     # check for sufficient number of photometry files
     if len(filenames) < 3:
