@@ -275,7 +275,7 @@ def fit_taxonomy(wav,ref,ref_err):
 
     # retrieve taxonomic template data
     url = 'http://www2.lowell.edu/users/nmosko/busdemeo-meanspectra.csv'
-    print('silly status bar:')
+    print(' queue silly status bar:')
     tax_file = wget.download(url)
     print('')
 
@@ -467,7 +467,7 @@ def pp_colors(filenames):
         fit_pars = [float(par) for par in f.readline().strip().split()]
         f.close()
 
-        # Time in hours relative to ...
+        # Time in hours since start of reference filter exposures
         time_hr = (color_summary['f2_jd']-jd0)*24.
         # hours since epoch of lightcurve Fourier fit
         t0 = (jd0-fourier_jd0) * 24.
@@ -477,7 +477,6 @@ def pp_colors(filenames):
 
         # Reference magnitide calculated at times of other exposures
         color_summary['ref_mag'] = np.round(fourier(time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag']),4)
-        print(color_summary,np.mean(ref_mag_table['mag']))
 
         # Time in hr since start of reference filter exposures
         ref_time_hr = (ref_mag_table['julian_date']-jd0)*24.
@@ -526,9 +525,17 @@ def pp_colors(filenames):
         #   average error = standard deviation of colors / sqrt(N)
         # else error is reported as just the error for the single color
         if num_col > 1:
-            avg_col_err = np.round(np.std(color_summary[mask3]['color']),4)
-            #avg_col_err = np.sqrt(1/np.sum(1/color_summary[mask3]['color_err']**2))
+            # RMS
+            avg_col_err = np.round(np.sqrt(np.sum(color_summary[mask3]['color_err']**2)/num_col),4)
+            
+            # standard deviation of colors
+            #avg_col_err = np.round(np.std(color_summary[mask3]['color']),4)
+                        
+            # standard error = standard deviation of colors / sqrt(N)
             #avg_col_err = np.round(np.std(color_summary[mask3]['color'])/np.sqrt(num_col),4)
+            
+            # mean of errors
+            #avg_col_err = np.round(np.mean(color_summary[mask3]['color_err']),4)
         else:
             avg_col_err = np.round(color_summary[mask3]['color_err'],4)
 
