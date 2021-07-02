@@ -535,10 +535,7 @@ def pp_colors(filenames):
         avg_col = np.round(np.average(color_summary[mask3]['color'], \
         weights=weight_vals),4)
         
-        # average color error = standard deviation of all color values if N > 1
-        #   alternative could be:
-        #   average error = standard deviation of colors / sqrt(N)
-        # else error is reported as just the error for the single color
+        # average color error
         if num_col > 1:
             # RMS
             #avg_col_err = np.round(np.sqrt(np.sum(color_summary[mask3]['color_err']**2)/num_col),4)
