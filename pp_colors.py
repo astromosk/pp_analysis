@@ -541,13 +541,13 @@ def pp_colors(filenames):
             #avg_col_err = np.round(np.sqrt(np.sum(color_summary[mask3]['color_err']**2)/num_col),4)
             
             # standard deviation of colors
-            #avg_col_err = np.round(np.std(color_summary[mask3]['color']),4)
+            avg_col_err = np.round(np.std(color_summary[mask3]['color']),4)
                         
             # standard error = standard deviation of colors / sqrt(N)
             #avg_col_err = np.round(np.std(color_summary[mask3]['color'])/np.sqrt(num_col),4)
             
             # mean of errors
-            avg_col_err = np.round(np.mean(color_summary[mask3]['color_err']),4)
+            #avg_col_err = np.round(np.mean(color_summary[mask3]['color_err']),4)
         else:
             avg_col_err = np.round(color_summary[mask3]['color_err'],4)
         
