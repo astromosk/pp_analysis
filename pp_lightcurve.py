@@ -43,6 +43,7 @@ def make_plots(best_period,fit,periods,chisq,power,frequency):
     plt.xlabel('Time (hr)')
     tit = photfile.replace('photometry_','').replace('.dat','').replace('_','')
     plt.title(tit,fontsize=8)
+    plt.gca().invert_yaxis()
     plt.tight_layout()
     plt.savefig(tit+'_lightcurve.png',format='png',dpi=300)
     plt.clf()
