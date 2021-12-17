@@ -633,7 +633,7 @@ if __name__ == '__main__':
         print('At least 3 required. Exiting.')
         sys.exit()
 
-    # check for lightcurve fit parameter file if specified
+    # check for lightcurve fit parameter file
     if lc_fit_file != '':
         if not os.path.exists(lc_fit_file):
             print('Lightcurve fit parmeter file not found: '+lc_fit_file)
