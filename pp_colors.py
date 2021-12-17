@@ -171,10 +171,17 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
 
     # If polynomial order specified, fit and plot
     if poly_n != 0:
-        print('   Fitting data with order '+str(poly_n)+' polynomial')
-        fit = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], poly_n, w=1/ref_mag_table['sig']**2)
+        if poly_n >= len(ref_mag_table):
+            print('   Cannot fit data with order '+str(poly_n)+' polynomial.')
+            print('   Only '+str(len(ref_mag_table))+' reference filter measurements.')
+            print('   Try lower order fit.')
+            print('   Exiting.')
+            sys.exit()
+        else:
+            print('   Fitting data with order '+str(poly_n)+' polynomial')
+            fit = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], poly_n, w=1/ref_mag_table['sig']**2)
         
-        plt.plot(time_day,fit(ref_mag_table['julian_date']), label='Order '+str(poly_n) + ' polynomial',linewidth=0.5)
+            plt.plot(time_day,fit(ref_mag_table['julian_date']), label='Order '+str(poly_n) + ' polynomial',linewidth=0.5)
 
     # If polynomial order not specified try order 1-3 to find best fit
     else:
@@ -183,7 +190,10 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
         # Try linear fit
         fit1 = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], 1, w=1/ref_mag_table['sig']**2)
         resid1 = ref_mag_table['mag'] - fit1(ref_mag_table['julian_date'])
-        dof = len(ref_mag_table['julian_date']) - 2
+        if len(ref_mag_table) > 2:
+            dof = len(ref_mag_table['julian_date']) - 2
+        else:
+            dof = 1
         chi1 = sum((resid1/(ref_mag_table['sig']))**2)/dof
 
         # Try quadratic fit, if enough data points
@@ -222,8 +232,10 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
             print('   Best fit is 3rd order polynomial')
 
         plt.plot(time_day,fit1(ref_mag_table['julian_date']), label=labels[0],lw=widths[0])
-        plt.plot(time_day,fit2(ref_mag_table['julian_date']), label=labels[1],lw=widths[1])
-        plt.plot(time_day,fit3(ref_mag_table['julian_date']), label=labels[2],lw=widths[2])
+        if chi2 < 1000.:
+            plt.plot(time_day,fit2(ref_mag_table['julian_date']), label=labels[1],lw=widths[1])
+        if chi3 < 1000.:
+            plt.plot(time_day,fit3(ref_mag_table['julian_date']), label=labels[2],lw=widths[2])
 
     # Annotate plot
     plt.title('Reference filter: '+ref_mag_table['[7]'][0])
@@ -418,9 +430,9 @@ def pp_colors(filenames):
         if sum(mask) > 1:
             print('More than one filter has '+str(max(avg_mags['num_obs']))+' exposures:')
             print('   '+avg_mags[mask]['filter'])
-            print('Using filter with lowest error as reference:')
-    
-            mask = avg_mags['mag_err'] == min(avg_mags['mag_err'])
+            print('Using filter with most observations and lowest error as reference:')
+                
+            mask = avg_mags['mag_err'] == min(avg_mags[mask]['mag_err'])
             print('   '+avg_mags[mask]['filter'])
 
             if sum(mask) > 1:
@@ -429,6 +441,7 @@ def pp_colors(filenames):
                 print('Multiple filters have the same average error.')
                 print('Exiting.')
                 sys.exit()
+
         else:
             print('   Using filter with most observations as reference: '+avg_mags[mask]['filter'][0])
 
