@@ -202,7 +202,9 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
             resid2 = ref_mag_table['mag'] - fit2(ref_mag_table['julian_date'])
             dof = len(ref_mag_table['julian_date']) - 3
             chi2 = sum((resid2/(ref_mag_table['sig']))**2)/dof
-        else: chi2 = 1000.
+        else:
+            print('   Order 2 not viable with only '+str(len(ref_mag_table))+' reference observations')
+            chi2 = 1000.
 
         # Try cubic fit, if enough data points
         if len(ref_mag_table['julian_date']) > 3:
@@ -210,7 +212,9 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
             resid3 = ref_mag_table['mag'] - fit3(ref_mag_table['julian_date'])
             dof = len(ref_mag_table['julian_date']) - 4
             chi3 = sum((resid3/(ref_mag_table['sig']))**2)/dof
-        else: chi3 = 1000.
+        else:
+            print('   Order 3 not viable with only '+str(len(ref_mag_table))+' reference observations')
+            chi3 = 1000.
     
         # Determine and overplot best fit: linear, quadratic or cubic
         labels = ['linear','quadratic','cubic']
@@ -428,12 +432,12 @@ def pp_colors(filenames):
     if reference_filter == '':
         mask = avg_mags['num_obs'] == max(avg_mags['num_obs'])
         if sum(mask) > 1:
-            print('More than one filter has '+str(max(avg_mags['num_obs']))+' exposures:')
-            print('   '+avg_mags[mask]['filter'])
+            print('More than one filter has '+str(max(avg_mags['num_obs']))+' observations:')
+            print(avg_mags[mask]['filter','num_obs','mag_err'])
             print('Using filter with most observations and lowest error as reference:')
                 
             mask = avg_mags['mag_err'] == min(avg_mags[mask]['mag_err'])
-            print('   '+avg_mags[mask]['filter'])
+            print(avg_mags[mask]['filter'])
 
             if sum(mask) > 1:
                 print('Cant determine reference filter.')
