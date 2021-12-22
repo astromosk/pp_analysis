@@ -157,7 +157,7 @@ def lc_fourierplot(ref_mag_table,period,fit_pars,offset,t0):
 ##########################
 # Determine polynomial fit to lightcurve
 ##########################
-def lc_polyfit(ref_mag_table,jd0,poly_n=0):
+def lc_polyfit(ref_mag_table,jd0,poly_n=-1):
     """
     Polynomial fit to lightcurve variations in referenece filter
     """
@@ -170,7 +170,7 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=0):
                  marker='o',ecolor='0.7',ls='None',markersize=4)
 
     # If polynomial order specified, fit and plot
-    if poly_n != 0:
+    if poly_n != -1:
         if poly_n >= len(ref_mag_table):
             print('   Cannot fit data with order '+str(poly_n)+' polynomial.')
             print('   Only '+str(len(ref_mag_table))+' reference filter measurements.')
@@ -613,7 +613,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Spectro-photometric analysis of data from photometry pipeline')
     parser.add_argument('files', help='*.dat files to process',nargs='+')
     parser.add_argument('-lc_fit', help='Lightcurve fit parameter file (str)',default='')
-    parser.add_argument('-poly_n', help='Polynomial order to fit lightcurve (int)',default=0, type=int)
+    parser.add_argument('-poly_n', help='Polynomial order to fit lightcurve (int)',default=-1, type=int)
     parser.add_argument('-ref_filt', help='Reference filter (str), options: <B|V|R|I|u|g|r|i|z|SDSS-U|SDSS_G|SDSS-R|SDSS-I|SDSS-Z>',default='')
     parser.add_argument('-facility', help='Telescope/instrument (str)',
                         default='')
