@@ -111,13 +111,14 @@ def read_phot_table(file):
         # check file can be read as a standard PP output file
         try:
             t = Table.read(file,format='ascii.commented_header')
+            t.sort('julian_date')
         except:
             print('File '+file+' not in expected format. Exiting')
             sys.exit()
     else:
         print('File '+file+' does not exist. Exiting.')
         sys.exit()
-    
+        
     return t
 
 ##########################
