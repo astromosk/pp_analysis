@@ -583,6 +583,7 @@ def pp_colors(filenames):
     taxon_results.add_column(Column(rms,name='rms'))
     taxon_results.sort('rms')
     print('   Best fit type: '+taxon_results['taxon'][0])
+    print('   Best fit RMS: ',taxon_results['rms'][0])
 
     # write results to file
     with open('resultSummary.txt', mode='w') as f:
