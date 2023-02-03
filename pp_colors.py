@@ -574,7 +574,9 @@ def pp_colors(filenames):
     # compute normalized reflectance and associated errors
     avg_mags.sort('wavelength')
     ref, ref_err = mag_to_ref(avg_mags,avg_colors,ref_filt,color_summary['ref_err'][0])
-    
+    avg_mags['ref'] = np.round(ref,4)
+    avg_mags['ref_err'] = np.round(ref_err,4)
+
     # Find best fit SMASS taxonomy
     print('Find taxonomic type...')
     wav = avg_mags['wavelength']
@@ -605,6 +607,7 @@ def pp_colors(filenames):
         f.write('\n')
         f.write('SUMMARY OF COLOR DATA:\n')
         color_summary.write(f,format='ascii.fixed_width')
+        
     print('Results written to resultSummary.txt')
 
 ##########################
