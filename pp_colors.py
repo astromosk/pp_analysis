@@ -178,14 +178,29 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=-1):
             print('   Try lower order fit.')
             print('   Exiting.')
             sys.exit()
+        # special case for polynomial order=0
+        elif poly_n == 0:
+            print('   Fitting data with constant magnitude')
+            fit = Polynomial([np.average(ref_mag_table['mag'],weights=1/ref_mag_table['sig']**2),0])
+        
+            plt.plot(time_day,fit(ref_mag_table['julian_date']), label='Order '+str(poly_n) + ' polynomial',linewidth=0.5)
         else:
             print('   Fitting data with order '+str(poly_n)+' polynomial')
             fit = Polynomial.fit(ref_mag_table['julian_date'], ref_mag_table['mag'], poly_n, w=1/ref_mag_table['sig']**2)
         
             plt.plot(time_day,fit(ref_mag_table['julian_date']), label='Order '+str(poly_n) + ' polynomial',linewidth=0.5)
 
+
     # If polynomial order not specified try order 1-3 to find best fit
     else:
+        # make sure there is more than 1 measurement in the reference filter
+        # to enable a polynomial fit
+        if(len(ref_mag_table) == 1):
+            print('ERROR: Only one measurement in reference filter.')
+            print('   Specify a different reference filter or re-run with poly_n = 0')
+            print('   Exiting')
+            sys.exit()
+
         print('   No polynomial order specified. Trying orders 1, 2 and 3.')
  
         # Try linear fit
@@ -409,6 +424,8 @@ def pp_colors(filenames):
               
         # Compute weighted average mag, error, number of observations
         avmag = np.round(np.average(mag_table['mag'],weights=1/mag_table['sig']**2),4)
+        #avmag = np.round(np.average(mag_table['mag']),4)  # average
+        #avmag = np.round(np.median(mag_table['mag']),4)  # median
         averr = np.round(np.average(mag_table['sig']),4)
         avg_mags['average_mag'][i], avg_mags['mag_err'][i] = avmag, averr
         avg_mags['num_obs'][i] = len(mag_table['mag'])
