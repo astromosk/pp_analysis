@@ -610,7 +610,10 @@ def pp_colors(filenames):
     taxon_results.add_column(Column(taxa,name='taxon'))
     taxon_results.add_column(Column(rms,name='rms'))
     taxon_results.sort('rms')
-    print('   Best fit type: '+taxon_results['taxon'][0])
+    if bus:
+        print('   Best fit type (Bus): '+taxon_results['taxon'][0])
+    else:
+        print('   Best fit type (Bus-Demeo): '+taxon_results['taxon'][0])
     print('   Best fit RMS: ',taxon_results['rms'][0])
 
     # write results to file
@@ -627,7 +630,10 @@ def pp_colors(filenames):
         avg_colors.write(f,format='ascii.fixed_width')
         
         f.write('\n')
-        f.write('TAXONOMIC FITS (sorted by RMS):\n')
+        if bus:
+            f.write('BUS TAXONOMIC FITS (sorted by RMS):\n')
+        else:
+            f.write('BUS-DEMEO TAXONOMIC FITS (sorted by RMS):\n')
         taxon_results.write(f,format='ascii.fixed_width')
 
         f.write('\n')
