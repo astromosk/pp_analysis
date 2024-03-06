@@ -73,7 +73,7 @@ def lookup_filter(filterName):
     Parse filter name, return wavelength, solar mag, plot color
     """
     
-    #  dictionary of supported filters: wavelengths (micron), solar mag, and plot color
+    #  dictionary of supported filters: wavelengths (micron), solar AB mag, and plot color
     filters = {
               'B': [0.4353, 5.47, 'blue'],
               'V': [0.5477, 4.82, 'darkgreen'],
@@ -306,7 +306,12 @@ def fit_taxonomy(wav,ref,ref_err):
     """
 
     # retrieve taxonomic template data
-    url = 'http://www2.lowell.edu/users/nmosko/busdemeo-meanspectra.csv'
+    if bus:
+        # classify using templates from Bus taxonomic system
+        url = 'http://www2.lowell.edu/users/nmosko/bus-meanspectra.csv'
+    else:
+        # classify using templates from Bus-Demeo taxonomic system
+        url = 'http://www2.lowell.edu/users/nmosko/busdemeo-meanspectra.csv'
     print(' queue silly status bar:')
     tax_file = wget.download(url)
     print('')
@@ -357,7 +362,11 @@ def fit_taxonomy(wav,ref,ref_err):
     else:
         plt.ylim(0.5,1.5)
         
-    plt.figtext(0.15,0.83,'Best fit taxonomy: '+best_taxon+'-type')
+    if bus:
+        plt.figtext(0.15,0.83,'Best fit taxonomy (Bus): '+best_taxon+'-type')
+    else:
+        plt.figtext(0.15,0.83,'Best fit taxonomy (Bus-Demeo): '+best_taxon+'-type')
+
     plt.xlabel('Wavelength (microns)')
     plt.ylabel('Normalized Reflectance')
     plt.title(ref_plot_title)
@@ -642,6 +651,7 @@ if __name__ == '__main__':
     parser.add_argument('-date', help='Date of observations (str)',default='')
     parser.add_argument('-target', help='Object designation (str)',default='---')
     parser.add_argument('-tax', help='User specified taxonomic class (str), options: <A|B|C|Cb|Cg|Cgh|Ch|D|K|L|O|Q|R|S|Sa|Sq|Sr|Sv|T|V|X|Xc|Xe|Xk>',default='')
+    parser.add_argument('-bus', help='Classify in Bus taxonomic system',nargs='?',default=False,type=bool,const=True)
 
     args = parser.parse_args()
     filenames = sorted(args.files)
@@ -652,6 +662,7 @@ if __name__ == '__main__':
     date_obs = args.date
     target = args.target
     user_tax = args.tax
+    bus = args.bus
 
     # check for sufficient number of photometry files
     if len(filenames) < 3:
