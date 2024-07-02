@@ -134,17 +134,17 @@ def lc_fourierplot(ref_mag_table,period,fit_pars,offset,t0):
     jd0 = min(ref_mag_table['julian_date'])
     # Time in hours since start of reference filter exposures
     time_hr = (ref_mag_table['julian_date']-jd0)*24.
-    hires_time = np.linspace(min(time_hr),max(time_hr),1000)
+    hires_hr = np.linspace(min(time_hr),max(time_hr),1000)
 
     # plot reference magnitudes
     plt.errorbar(time_hr,ref_mag_table['mag'],ref_mag_table['sig'],
                   marker='o',ecolor='0.7',ls='None',markersize=4)
 
     # Model reference mags
-    ref_data = fourier(hires_time, period, t0, fit_pars) + np.mean(ref_mag_table['mag']) + offset
+    ref_data = fourier(hires_hr, period, t0, fit_pars) + np.mean(ref_mag_table['mag']) + offset
 
     # Plot computed values
-    plt.plot(hires_time,ref_data, label='Fourier fit from file',linewidth=0.5)
+    plt.plot(hires_hr,ref_data, label='Fourier fit from file',linewidth=0.5)
     
     # Annotate plot
     plt.title('Reference filter: '+ref_mag_table['[7]'][0])
@@ -153,7 +153,7 @@ def lc_fourierplot(ref_mag_table,period,fit_pars,offset,t0):
     plt.legend(loc='lower center')
     fig2.savefig('lightcurve.png',format='png',dpi=200)
 
-    return
+    return hires_hr,ref_data
 
 ##########################
 # Determine polynomial fit to lightcurve
@@ -399,14 +399,10 @@ def pp_colors(filenames):
                           
     taxon_results = Table()
     
-    # Setup magnitudes vs. time plot
-    fig1 = plt.figure()
-    plt.gca().invert_yaxis()
-
     # Loop through each input file to summarize results in Table avg_mags
     # and start to populate color_summary table
     #
-    print('Reading photometry files & plotting time series photometry...')
+    print('Reading photometry files...')
     for i in range(len(filenames)):
 
         # Create empty row in avg_mag Table
@@ -425,12 +421,7 @@ def pp_colors(filenames):
         avg_mags['filter'][i] = filt_name
         avg_mags['wavelength'][i] = filter_info[0]
         avg_mags['solar_mag'][i] = filter_info[1]
-              
-        # Plot mags vs time
-        plt.errorbar(mag_table['julian_date'],mag_table['mag'],mag_table['sig'],
-                     color=filter_info[2],ecolor='0.7',linestyle='--',
-                     marker='x',label=filt_name)
-              
+                            
         # Compute weighted average mag, error, number of observations
         avmag = np.round(np.average(mag_table['mag'],weights=1/mag_table['sig']**2),4)
         #avmag = np.round(np.average(mag_table['mag']),4)  # average
@@ -445,12 +436,6 @@ def pp_colors(filenames):
                                 mag_table['[7]'][i],mag_table['mag'][i], \
                                 mag_table['sig'][i],mag_table['julian_date'][i],'',0,0])
 
-    # Annotate and write time series plot of mags vs time
-    plt.title('Time series photometry')
-    plt.xlabel('Julian Date')
-    plt.ylabel('Apparent Magnitude')
-    plt.legend()
-    fig1.savefig('timeSeries.png',format='png',dpi=200)
 
     # Determine reference filter for tracking lightcurve based on
     # band with most observations + highest S/N or user specification
@@ -543,7 +528,7 @@ def pp_colors(filenames):
         color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
 
         # Plot reference magnitudes with Fourier fit
-        lc_fourierplot(ref_mag_table,period,fit_pars,best_offset,t0)
+        hires_hr,ref_data = lc_fourierplot(ref_mag_table,period,fit_pars,best_offset,t0)
 
     # Lightcurve correction based on polynomial fit
     else:
@@ -560,6 +545,53 @@ def pp_colors(filenames):
         ref_mag_residuals = ref_mag_table['mag'] - best_fit(ref_mag_table['julian_date'])
         color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
 
+
+    # Build magnitudes vs. time plot
+    print('Plot time series photometry...')
+    fig1 = plt.figure()
+    plt.gca().invert_yaxis()
+
+    # go through and plot photometry for each filter
+    for i in range(len(filenames)):
+
+        # Photometry file name
+        file = filenames[i]
+        
+        # mag_table read from photometry file
+        mag_table = read_phot_table(file)
+              
+        # Retrieve filter information
+        filt_name = mag_table['[7]'][0]
+        filter_info = lookup_filter(filt_name)
+
+        # Plot mags vs time
+        plt.errorbar(mag_table['julian_date'],mag_table['mag'],mag_table['sig'],
+                     color=filter_info[2],ecolor='0.7',linestyle='--',
+                     marker='x',label=filt_name)
+
+    # Plot lightcurve correction curve
+    #
+    # full time span of observations
+    all_times_jd = np.sort(np.concatenate((ref_mag_table['julian_date'].data,color_summary['f2_jd'].data)))
+    all_times_hr = (all_times_jd - jd0)*24
+    hires_all_times_hr = np.linspace(min(all_times_hr),max(all_times_hr),1000)
+    
+    # use Fourier fit to correct for LC variations, OR...
+    if lc_fit_file != '':
+        hires_lc = fourier(hires_all_times_hr, period, t0, fit_pars) + np.mean(ref_mag_table['mag']) + best_offset
+
+        plt.plot(hires_all_times_hr/24+jd0,hires_lc, label='Fourier LC fit',linewidth=0.5,c='orange',zorder=10)
+        
+    # ...use polynomial fit to correct for LC variations
+    else:
+        plt.plot(all_times_jd,best_fit(all_times_jd),label='Polynomial fit (n='+str(best_fit.degree())+')', linewidth=0.5,c='orange',zorder=10)
+
+    # Annotate and write time series plot of mags vs time
+    plt.title('Time series photometry')
+    plt.xlabel('Julian Date')
+    plt.ylabel('Apparent Magnitude')
+    plt.legend()
+    fig1.savefig('timeSeries.png',format='png',dpi=200)
 
     # compute color relative to computed reference magnitude for each frame
     color_summary['color'] = np.round(color_summary['ref_mag'] - color_summary['f2_mag'],4)
