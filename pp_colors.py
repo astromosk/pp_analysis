@@ -683,7 +683,7 @@ if __name__ == '__main__':
     parser.add_argument('files', help='*.dat files to process',nargs='+')
     parser.add_argument('-lc_fit', help='Lightcurve fit parameter file (str)',default='')
     parser.add_argument('-poly_n', help='Polynomial order to fit lightcurve (int)',default=-1, type=int)
-    parser.add_argument('-ref_filt', help='Reference filter (str), options: <B|V|R|I|u|g|r|i|z|SDSS-U|SDSS_G|SDSS-R|SDSS-I|SDSS-Z>',default='')
+    parser.add_argument('-ref_filt', help='Reference filter (str), options: <B|V|R|I|u|g|r|i|z|SDSS-U|SDSS-G|SDSS-R|SDSS-I|SDSS-Z>',default='')
     parser.add_argument('-facility', help='Telescope/instrument (str)',
                         default='')
     parser.add_argument('-date', help='Date of observations (str)',default='')
