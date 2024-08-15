@@ -181,8 +181,8 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=-1):
         # special case for polynomial order=0
         elif poly_n == 0:
             print('   Fitting data with constant magnitude')
-            fit = Polynomial([np.average(ref_mag_table['mag'],weights=1/ref_mag_table['sig']**2),0])
-        
+            fit = Polynomial([np.average(ref_mag_table['mag'],weights=1/ref_mag_table['sig']**2)])
+
             plt.plot(time_day,fit(ref_mag_table['julian_date']), label='Order '+str(poly_n) + ' polynomial',linewidth=0.5)
         else:
             print('   Fitting data with order '+str(poly_n)+' polynomial')
@@ -267,7 +267,7 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=-1):
     return fit
 
 ##########################
-# Conert magnitude to reflectance
+# Convert magnitude to reflectance
 ##########################
 def mag_to_ref(avg_mags,avg_colors,ref_filt,ref_mag_err):
     """
