@@ -648,7 +648,8 @@ def pp_colors(filenames):
         print('   Best fit type (Bus-Demeo): '+taxon_results['taxon'][0])
     print('   Best fit RMS: ',taxon_results['rms'][0])
 
-    # write results to file
+    # write results to files
+    # overall summary file
     with open('resultSummary.txt', mode='w') as f:
         
         f.write('AVERAGE MAGNITUDES:\n')
@@ -673,6 +674,15 @@ def pp_colors(filenames):
         color_summary.write(f,format='ascii.fixed_width')
         
     print('Results written to resultSummary.txt')
+    
+    # colors formatted as spectral file
+    with open(target.replace(' ','')+'_'+facility+'_'+date_obs.replace('-','')+'.txt', mode='w') as f:
+                
+        f.write('OBSERVATION_DATETIME='+date_obs+' 00:00:00\n')
+        f.write('OBJECT_DESIGNATION='+target+'\n')
+        f.write('###\n')
+        avg_mags['wavelength','ref','ref_err'].write(f,format='ascii.no_header',delimiter=',')
+
 
 ##########################
 # Main
