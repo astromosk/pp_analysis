@@ -290,6 +290,8 @@ def mag_to_ref(avg_mags,avg_colors,ref_filt,ref_mag_err):
 
     flux = 10**(-(norm_mag - avg_mags['solar_mag'])/2.5)
     norm = np.interp([0.55],avg_mags['wavelength'],flux)
+    #print(norm)
+    #norm=26
     reflectance = flux / norm
 
     ref_error = 2.30259*flux*norm_mag_err/2.5/norm
@@ -525,7 +527,10 @@ def pp_colors(filenames):
         # Error on calculated reference mags equal to the standard deviation of
         # the residuals between the Fourier model and the data points
         ref_mag_residuals = ref_mag_table['mag'] - (fourier(ref_time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag']) + best_offset)
-        color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
+        if np.std(ref_mag_residuals) != 0.0:
+            color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
+        else:
+            color_summary['ref_err'] = 0.001
 
         # Plot reference magnitudes with Fourier fit
         hires_hr,ref_data = lc_fourierplot(ref_mag_table,period,fit_pars,best_offset,t0)
@@ -543,9 +548,11 @@ def pp_colors(filenames):
         # Error on calculated reference mags equal to the standard deviation of
         # the residuals between the polynomial model and the data points
         ref_mag_residuals = ref_mag_table['mag'] - best_fit(ref_mag_table['julian_date'])
-        color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
-
-
+        if np.std(ref_mag_residuals) != 0.0:
+            color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
+        else:
+            color_summary['ref_err'] = 0.001
+                        
     # Build magnitudes vs. time plot
     print('Plot time series photometry...')
     fig1 = plt.figure()
@@ -584,7 +591,7 @@ def pp_colors(filenames):
         
     # ...use polynomial fit to correct for LC variations
     else:
-        plt.plot(all_times_jd,best_fit(all_times_jd),label='Polynomial fit (n='+str(best_fit.degree())+')', linewidth=0.5,c='orange',zorder=10)
+        plt.plot(all_times_jd,best_fit(all_times_jd),label='Poly. fit (n='+str(best_fit.degree())+')', linewidth=0.5,c='orange',zorder=10)
 
     # Annotate and write time series plot of mags vs time
     plt.title('Time series photometry')
