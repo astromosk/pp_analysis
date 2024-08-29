@@ -527,7 +527,7 @@ def pp_colors(filenames):
         # Error on calculated reference mags equal to the standard deviation of
         # the residuals between the Fourier model and the data points
         ref_mag_residuals = ref_mag_table['mag'] - (fourier(ref_time_hr,period,t0,fit_pars) + np.mean(ref_mag_table['mag']) + best_offset)
-        if np.std(ref_mag_residuals) != 0.0:
+        if np.std(ref_mag_residuals) > 0.001:
             color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
         else:
             color_summary['ref_err'] = 0.001
@@ -548,7 +548,7 @@ def pp_colors(filenames):
         # Error on calculated reference mags equal to the standard deviation of
         # the residuals between the polynomial model and the data points
         ref_mag_residuals = ref_mag_table['mag'] - best_fit(ref_mag_table['julian_date'])
-        if np.std(ref_mag_residuals) != 0.0:
+        if np.std(ref_mag_residuals) > 0.001:
             color_summary['ref_err'] = np.round(np.std(ref_mag_residuals),4)
         else:
             color_summary['ref_err'] = 0.001
