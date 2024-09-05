@@ -30,14 +30,21 @@ from scipy.optimize import curve_fit as cf
 ##########################
 # Output plots to file
 ##########################
-def make_plots(best_period,fit,periods,chisq,power,frequency):
+def make_plots(best_period,phase,fit,periods,chisq,power,frequency):
     '''
     Generate a plot of the unfolded lightcurve and the period analysis results
     '''
 
+    # if specified to ignore SourceExtractor flag then set to 0 for all frames
+    if ignore_flag:
+            dat['[8]'] = 0
+
     # Raw photometry plotted as an unfolded lightcurve
     plt.errorbar((dat['julian_date'][dat['[8]'] == 0]-jd0)*24.,dat['mag'][dat['[8]'] == 0],\
-                 yerr=dat['sig'][dat['[8]'] == 0],fmt='o',markersize=1.5,linestyle=' ')
+                 yerr=dat['sig'][dat['[8]'] == 0],fmt='o',markersize=0.5,linestyle=' ',elinewidth=0.5)
+    
+#    plt.plot(np.linspace(min(time_hr),max(time_hr),10000), fit+np.mean(dat['mag'][dat['[8]'] == 0]),'k-')
+
 
     plt.ylabel('Apparent Magnitude')
     plt.xlabel('Time (hr)')
@@ -67,20 +74,23 @@ def make_plots(best_period,fit,periods,chisq,power,frequency):
 
     # Phase folded lightcurve
     plt.subplot(3,1,3)
-    niter = math.ceil((dat['julian_date'][-1]-jd0) / (best_period/24.))
-    for i in range(niter):
+    # number of lightcurve cycles in observing window
+    ncycle = math.ceil((dat['julian_date'][-1]-jd0) / (best_period/24.))
+    for i in range(ncycle):
         plt.errorbar(((dat['julian_date'][dat['[8]'] == 0]-jd0)*24.-i*best_period)/best_period,
                      dat['norm_mag'][dat['[8]'] == 0],
                      yerr=dat['in_sig'][dat['[8]'] == 0],fmt='o',markersize=1.5,linestyle=' ')
 
 
     # Best fit Fourier function
-    phase = np.linspace(min(time_hr),max(time_hr),1000)/best_period
+    phase = np.linspace(min(time_hr),max(time_hr),10000)/best_period
+    #phase = np.linspace(0,ncycle,10000)
     plt.plot(phase, fit,'k-')
+    #plt.plot(phase, fit,'bo')
 
     plt.axis([-0.1,1.1,1.5*max(dat['norm_mag'][dat['[8]'] == 0]),1.5*min(dat['norm_mag'][dat['[8]'] == 0])])
     plt.ylabel('Diff. Mag.')
-    plt.xlabel('Phase (Period = '+str('{:1.3f}'.format(best_period))+' hr)')
+    plt.xlabel('Phase (Period = '+str('{:1.4f}'.format(best_period))+' hr)')
 
     plt.subplots_adjust(hspace=0.5)
     plt.savefig(tit+'_period.png',format='png',dpi=300)
@@ -148,7 +158,10 @@ def pp_lightcurve():
             best_popt = popt
             best_period = period
             # store high resolution fit
-            fit = fourier(np.linspace(min(time_hr),max(time_hr),1000), *best_popt)
+            fit = fourier(np.linspace(min(time_hr),max(time_hr),10000), *best_popt)
+
+    # compute phases for best period
+    phase = (time_hr % best_period) / best_period
 
     # Best fit solution parameters
     print('Fourier analysis:')
@@ -166,7 +179,7 @@ def pp_lightcurve():
     f.close()
 
     if do_plot:
-        make_plots(best_period,fit,periods,chisq,power,frequency)
+        make_plots(best_period,phase,fit,periods,chisq,power,frequency)
 
 
 ##########################
@@ -181,6 +194,7 @@ if __name__ == '__main__':
     parser.add_argument('-fourier_step', help='Period step size in Fourier analysis [hr]',default=0.01,type=float)
     parser.add_argument('-min_period', help='Minimum period to search [hr]',default=0,type=float)
     parser.add_argument('-max_period', help='Maximum period to search [hr]',default=0,type=float)
+    parser.add_argument('-ignore_flag', help='Ignore SourceExtractor flag?',default=False,action='store_true')
     args = parser.parse_args()
     file = sorted(args.file)
     fit_order = args.fit_order
@@ -188,6 +202,7 @@ if __name__ == '__main__':
     fourier_step = args.fourier_step
     min_period = args.min_period
     max_period = args.max_period
+    ignore_flag = args.ignore_flag
 
     if len(file) > 1:
         print('Only 1 photometry file allowed. Exiting.')
