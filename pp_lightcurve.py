@@ -190,15 +190,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Lightcurve analysis of PP photometry')
     parser.add_argument('file', help='.dat file to process',nargs=1)
     parser.add_argument('fit_order', help='Order of fourier fit',type=int)
-    parser.add_argument('-make_plots', default=False, action='store_true', help='Write summary plots to file.')
-    parser.add_argument('-fourier_step', help='Period step size in Fourier analysis [hr]',default=0.01,type=float)
+    parser.add_argument('-no_plots', default=True, action='store_false', help='Dont produce plots')
+    parser.add_argument('-fourier_step', help='Period step size in Fourier analysis [hr]',default=0.001,type=float)
     parser.add_argument('-min_period', help='Minimum period to search [hr]',default=0,type=float)
     parser.add_argument('-max_period', help='Maximum period to search [hr]',default=0,type=float)
     parser.add_argument('-ignore_flag', help='Ignore SourceExtractor flag?',default=False,action='store_true')
     args = parser.parse_args()
     file = sorted(args.file)
     fit_order = args.fit_order
-    do_plot = args.make_plots
+    do_plot = args.no_plots
     fourier_step = args.fourier_step
     min_period = args.min_period
     max_period = args.max_period
