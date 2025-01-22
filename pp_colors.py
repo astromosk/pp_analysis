@@ -239,17 +239,17 @@ def lc_polyfit(ref_mag_table,jd0,poly_n=-1):
             fit = fit1
             labels[0] = r'linear $\longleftarrow best\ fit$'
             widths[0] = 2
-            print('   Best fit is 1st order polynomial')
+            print('   BEST FIT: 1st order polynomial')
         if chi2 < chi1 and chi2 < chi3:
             fit = fit2
             labels[1] = r'quadratic $\longleftarrow best\ fit$'
             widths[1] = 2
-            print('   Best fit is 2nd order polynomial')
+            print('   BEST FIT: is 2nd order polynomial')
         if chi3 < chi1 and chi3 < chi2:
             fit = fit3
             labels[2] = r'cubic $\longleftarrow best\ fit$'
             widths[2] = 2
-            print('   Best fit is 3rd order polynomial')
+            print('   BEST FIT: 3rd order polynomial')
 
         plt.plot(time_day,fit1(ref_mag_table['julian_date']), label=labels[0],lw=widths[0])
         if chi2 < 1000.:
@@ -291,7 +291,7 @@ def mag_to_ref(avg_mags,avg_colors,ref_filt,ref_mag_err):
     flux = 10**(-(norm_mag - avg_mags['solar_mag'])/2.5)
     norm = np.interp([0.55],avg_mags['wavelength'],flux)
     #print(norm)
-    #norm=26
+    #norm=53
     reflectance = flux / norm
 
     ref_error = 2.30259*flux*norm_mag_err/2.5/norm
@@ -613,11 +613,12 @@ def pp_colors(filenames):
         mask3 = color_summary['color_name'] == unique_colors[i]
         num_col = len(color_summary[mask3]['color'])
         
-        # weighted average color across all images
-        weight_vals = 1/color_summary[mask3]['color_err']**2
-        avg_col = np.round(np.average(color_summary[mask3]['color'], \
-        weights=weight_vals),4)
-        
+        # average color across all images
+        #weight_vals = 1/color_summary[mask3]['color_err']**2
+        #avg_col = np.round(np.average(color_summary[mask3]['color'], \
+        #weights=weight_vals),4)
+        avg_col = np.round(np.average(color_summary[mask3]['color']),4)
+
         # average color error
         if num_col > 1:
             # RMS
@@ -736,6 +737,8 @@ if __name__ == '__main__':
     dat = read_phot_table(filenames[0])
     if facility == '':
         facility = dat['[9]'][0]
+    if facility == 'DCTLMI':
+        facility = 'LDT-LMI'
     if date_obs == '':
         jd_obs = Time(dat['julian_date'][0],format='jd')
         date_obs = jd_obs.iso.split()[0]
